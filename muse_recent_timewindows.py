@@ -58,8 +58,8 @@ class MUSERecentTimeWindows:
                     self.starttimes[i] = starttimes[i]
                     self.endtimes[i] = endtimes[i]
                     try:
-                        self.starts[i] = Time(starttimes[i], format="isot", scale="utc")
-                        self.ends[i] = Time(endtimes[i], format="isot", scale="utc")
+                        self.starts[i] = Time(starttimes[i], scale="utc")
+                        self.ends[i] = Time(endtimes[i], scale="utc")
                         # Create window display string
                         start_date = self.starts[i].datetime.strftime("%d-%b-%Y")
                         end_date = self.ends[i].datetime.strftime("%d-%b-%Y")
@@ -116,8 +116,8 @@ class MUSERecentTimeWindows:
             End time string in a parseable format
         """
         try:
-            startt = Time(starttime, format="isot", scale="utc")
-            endt = Time(endtime, format="isot", scale="utc")
+            startt = Time(starttime, scale="utc")
+            endt = Time(endtime, scale="utc")
         except Exception as e:
             print(f"Error parsing times in newsearch: {e}")
             return

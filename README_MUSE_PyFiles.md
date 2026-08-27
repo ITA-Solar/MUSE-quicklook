@@ -207,7 +207,7 @@ Saved settings include:
    - Stored in `~/.muse_pyfiles/` (similar to IDL's APP_USER_DIR)
 
 4. **Time Handling**: IDL time routines ? `astropy.time.Time`
-   - `str2utc` ? `Time(string, format='isot')`
+   - `str2utc` ? `Time(string)`
    - `utc2str` ? `time.datetime.strftime()`
 
 5. **File Operations**: IDL `file_search` ? Python `pathlib.Path.glob()`
