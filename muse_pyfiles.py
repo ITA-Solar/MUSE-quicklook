@@ -721,14 +721,14 @@ class MUSEPyFiles(QMainWindow):
                     header = hdul[0].header
 
                     startobs = header.get("STARTOBS", header.get("DATE-OBS", date))
-                    obsid = header.get("OBSID", "Unknown")
+                    obsid = header.get("MSOBSLID", 0)
                     obs_desc = header.get("OBS_DESC", header.get("OBS_DEC", "No description"))
                     xcen = header.get("XCEN", 0.0)
                     ycen = header.get("YCEN", 0.0)
                     sat_rot = header.get("SAT_ROT", 0.0)
                     obsrep = header.get("OBSREP", 0)
 
-                    obs_str = f"{startobs:20s} {obsid:15s} {obs_desc:40s} {xcen:7.1f} {ycen:7.1f} {sat_rot:7.1f}"
+                    obs_str = f"{startobs:20s} {obsid:12} {obs_desc:40s} {xcen:7.1f} {ycen:7.1f} {sat_rot:7.1f}"
                     obs_info.append(obs_str)
                     obs_ids.append(obsid)
                     obs_reps.append(obsrep)
@@ -738,7 +738,7 @@ class MUSEPyFiles(QMainWindow):
         # Update OBS list
         self.obs_list.clear()
         if obs_info:
-            header = f"{'STARTOBS':20s} {'OBSID':15s} {'OBS_DESC':40s} {'XCEN':>7s} {'YCEN':>7s} {'SAT_ROT':>7s}"
+            header = f"{'STARTOBS':20s} {'OBSID':12s} {'OBS_DESC':40s} {'XCEN':>7s} {'YCEN':>7s} {'SAT_ROT':>7s}"
             self.obs_list.addItem(header)
             self.obs_list.addItems(obs_info)
 
