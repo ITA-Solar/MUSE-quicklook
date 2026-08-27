@@ -26,6 +26,7 @@ from astropy.time import Time
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QApplication,
+    QButtonGroup,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -38,22 +39,12 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QRadioButton,
     QVBoxLayout,
     QWidget,
 )
 
 from muse_recent_timewindows import MUSERecentTimeWindows
-
-
-class SearchPatterns:
-    """Structure to hold search pattern configurations"""
-
-    def __init__(self):
-        self.names = ["free search", "local"]
-        self.paths = ["", str(Path.home())]
-        self.usetree = [False, False]
-        self.searchsubdir = [False, False]
-        self.defaul = 1  # Default selection index
 
 
 def get_muse_config_dir() -> Path:
@@ -249,7 +240,15 @@ class MUSEPyFiles(QMainWindow):
         self.tstartval = "2014-06-17 18:14:05"  # MUSE first light
         self.tstopval = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
         self.ignoretime = False
-        self.spatterns = SearchPatterns()
+
+        # SPICE-style options
+        self.top_dir_choice = 0  # 0 = env var, 1 = manual path
+        self.top_dir_env_var = "MUSE_DATA"
+        self.dir_manual = str(Path.home())
+        self.level = 2  # Default level
+        self.use_levelx = True
+        self.use_tree_struct = True
+        self.search_subdirs = True
 
         starttimes = [self.tstartval]
         endtimes = [self.tstopval]
@@ -264,16 +263,14 @@ class MUSEPyFiles(QMainWindow):
                     self.ignoretime = config.get("ignoretime", self.ignoretime)
                     self.xmlfolder = config.get("xmlfolder", self.xmlfolder)
 
-                    # Load search patterns if available
-                    if "spatterns" in config:
-                        sp = config["spatterns"]
-                        self.spatterns.names = sp.get("names", self.spatterns.names)
-                        self.spatterns.paths = sp.get("paths", self.spatterns.paths)
-                        self.spatterns.usetree = sp.get("usetree", self.spatterns.usetree)
-                        self.spatterns.searchsubdir = sp.get(
-                            "searchsubdir", self.spatterns.searchsubdir
-                        )
-                        self.spatterns.defaul = sp.get("defaul", self.spatterns.defaul)
+                    # Load SPICE-style options
+                    self.top_dir_choice = config.get("top_dir_choice", self.top_dir_choice)
+                    self.top_dir_env_var = config.get("top_dir_env_var", self.top_dir_env_var)
+                    self.dir_manual = config.get("dir_manual", self.dir_manual)
+                    self.level = config.get("level", self.level)
+                    self.use_levelx = config.get("use_levelx", self.use_levelx)
+                    self.use_tree_struct = config.get("use_tree_struct", self.use_tree_struct)
+                    self.search_subdirs = config.get("search_subdirs", self.search_subdirs)
 
                     starttimes = config.get("starttimes", starttimes)
                     endtimes = config.get("endtimes", endtimes)
@@ -296,13 +293,13 @@ class MUSEPyFiles(QMainWindow):
             "tstopval": self.tstopval,
             "ignoretime": self.ignoretime,
             "xmlfolder": self.xmlfolder,
-            "spatterns": {
-                "names": self.spatterns.names,
-                "paths": self.spatterns.paths,
-                "usetree": self.spatterns.usetree,
-                "searchsubdir": self.spatterns.searchsubdir,
-                "defaul": self.spatterns.defaul,
-            },
+            "top_dir_choice": self.top_dir_choice,
+            "top_dir_env_var": self.top_dir_env_var,
+            "dir_manual": self.dir_manual,
+            "level": self.level,
+            "use_levelx": self.use_levelx,
+            "use_tree_struct": self.use_tree_struct,
+            "search_subdirs": self.search_subdirs,
             "starttimes": starttimes,
             "endtimes": endtimes,
         }
@@ -380,50 +377,94 @@ class MUSEPyFiles(QMainWindow):
         time_layout.addLayout(time_buttons_layout)
         main_layout.addWidget(time_frame)
 
-        # Search filter and pattern
+        # Search filter configuration (SPICE-style)
         search_frame = QFrame()
         search_frame.setFrameStyle(QFrame.Shape.Box)
         search_layout = QVBoxLayout(search_frame)
 
-        # Filter
-        filter_layout = QHBoxLayout()
-        filter_layout.addWidget(QLabel("Set search filter:"))
-        self.filter_edit = QLineEdit(self.filter)
-        filter_layout.addWidget(self.filter_edit)
-        search_layout.addLayout(filter_layout)
+        # Top directory selection
+        top_dir_layout = QHBoxLayout()
+        top_dir_layout.addWidget(QLabel("Top directory:"))
 
-        # Search pattern
-        pattern_layout = QHBoxLayout()
-        pattern_layout.addWidget(QLabel("Search Pattern:"))
-        self.search_pattern_combo = QComboBox()
-        self.search_pattern_combo.addItems(self.spatterns.names)
-        self.search_pattern_combo.setCurrentIndex(self.spatterns.defaul)
-        self.search_pattern_combo.currentIndexChanged.connect(self.change_pattern)
-        pattern_layout.addWidget(self.search_pattern_combo)
+        # Radio buttons for environment variable vs path
+        self.top_dir_env_rb = QRadioButton("Environment variable")
+        self.top_dir_path_rb = QRadioButton("Path")
 
-        edit_pattern_button = QPushButton("Edit")
-        edit_pattern_button.clicked.connect(self.edit_patterns)
-        pattern_layout.addWidget(edit_pattern_button)
+        self.top_dir_group = QButtonGroup()
+        self.top_dir_group.addButton(self.top_dir_env_rb, 0)
+        self.top_dir_group.addButton(self.top_dir_path_rb, 1)
 
-        pattern_layout.addStretch()
+        if self.top_dir_choice == 0:
+            self.top_dir_env_rb.setChecked(True)
+        else:
+            self.top_dir_path_rb.setChecked(True)
 
-        start_search_button = QPushButton("Start Search")
-        start_search_button.clicked.connect(self.start_search)
-        pattern_layout.addWidget(start_search_button)
+        self.top_dir_group.buttonClicked.connect(self.update_search_dir)
 
-        search_layout.addLayout(pattern_layout)
+        top_dir_layout.addWidget(self.top_dir_env_rb)
+        top_dir_layout.addWidget(self.top_dir_path_rb)
 
-        # Search directory
-        dir_layout = QHBoxLayout()
-        dir_layout.addWidget(QLabel("Search Directory:"))
-        self.searchdir_edit = QLineEdit(self.sdir)
-        dir_layout.addWidget(self.searchdir_edit)
+        # Environment variable field
+        self.top_dir_env_edit = QLineEdit(self.top_dir_env_var)
+        self.top_dir_env_edit.setPlaceholderText("Environment variable name")
+        self.top_dir_env_edit.textChanged.connect(self.update_search_dir)
+        top_dir_layout.addWidget(self.top_dir_env_edit)
+
+        search_layout.addLayout(top_dir_layout)
+
+        # Manual path field
+        dir_manual_layout = QHBoxLayout()
+        dir_manual_layout.addWidget(QLabel("Manual path:"))
+        self.dir_manual_edit = QLineEdit(self.dir_manual)
+        self.dir_manual_edit.textChanged.connect(self.update_search_dir)
+        dir_manual_layout.addWidget(self.dir_manual_edit)
 
         change_dir_button = QPushButton("Change")
         change_dir_button.clicked.connect(self.change_directory)
-        dir_layout.addWidget(change_dir_button)
+        dir_manual_layout.addWidget(change_dir_button)
 
-        search_layout.addLayout(dir_layout)
+        search_layout.addLayout(dir_manual_layout)
+
+        # Level selection and path options
+        level_layout = QHBoxLayout()
+
+        level_layout.addWidget(QLabel("Data Level:"))
+        self.level_combo = QComboBox()
+        self.level_combo.addItems(["Level 0", "Level 1", "Level 2", "Level 3"])
+        self.level_combo.setCurrentIndex(self.level)
+        self.level_combo.currentIndexChanged.connect(self.on_level_changed)
+        level_layout.addWidget(self.level_combo)
+
+        # Path structure checkboxes
+        self.use_levelx_cb = QCheckBox("Use levelx in path")
+        self.use_levelx_cb.setChecked(self.use_levelx)
+        self.use_levelx_cb.stateChanged.connect(self.update_search_dir)
+        level_layout.addWidget(self.use_levelx_cb)
+
+        self.use_tree_struct_cb = QCheckBox("Use Date-tree-structure in path")
+        self.use_tree_struct_cb.setChecked(self.use_tree_struct)
+        self.use_tree_struct_cb.stateChanged.connect(self.update_search_dir)
+        level_layout.addWidget(self.use_tree_struct_cb)
+
+        self.search_subdirs_cb = QCheckBox("Search subdirectories")
+        self.search_subdirs_cb.setChecked(self.search_subdirs)
+        self.search_subdirs_cb.stateChanged.connect(self.update_search_dir)
+        level_layout.addWidget(self.search_subdirs_cb)
+
+        search_layout.addLayout(level_layout)
+
+        # Search directory display and start button
+        search_path_layout = QHBoxLayout()
+        search_path_layout.addWidget(QLabel("Search Directory:"))
+        self.searchdir_edit = QLineEdit()
+        self.searchdir_edit.setReadOnly(True)
+        search_path_layout.addWidget(self.searchdir_edit)
+
+        start_search_button = QPushButton("Start Search")
+        start_search_button.clicked.connect(self.start_search)
+        search_path_layout.addWidget(start_search_button)
+
+        search_layout.addLayout(search_path_layout)
         main_layout.addWidget(search_frame)
 
         # OBS list
@@ -460,23 +501,74 @@ class MUSEPyFiles(QMainWindow):
         main_layout.addLayout(button_layout)
 
     def update_search_dir(self):
-        """Update the search directory field"""
-        pattern_idx = self.search_pattern_combo.currentIndex()
-        if pattern_idx < len(self.spatterns.paths):
-            path = self.spatterns.paths[pattern_idx]
-            if path:
-                self.searchdir_edit.setText(path)
-                self.sdir = path
-            else:
-                self.searchdir_edit.setText(self.sdir)
+        """Update the search directory field based on current options"""
+        import os
 
-    def change_pattern(self, index):
-        """Handle search pattern change"""
-        if index < len(self.spatterns.paths):
-            path = self.spatterns.paths[index]
-            if path:
-                self.searchdir_edit.setText(path)
-                self.sdir = path
+        # Get top directory
+        self.top_dir_choice = 0 if self.top_dir_env_rb.isChecked() else 1
+
+        if self.top_dir_choice == 0:
+            # Environment variable
+            self.top_dir_env_var = self.top_dir_env_edit.text().strip()
+            top_dir = os.environ.get(self.top_dir_env_var, "")
+            if not top_dir:
+                top_dir = "./"
+        else:
+            # Manual path
+            self.dir_manual = self.dir_manual_edit.text().strip()
+            top_dir = self.dir_manual
+
+        # Ensure trailing separator
+        if not top_dir.endswith(os.sep):
+            top_dir += os.sep
+
+        # Get current level
+        self.level = self.level_combo.currentIndex()
+
+        # Get checkbox states
+        self.use_levelx = self.use_levelx_cb.isChecked()
+        self.use_tree_struct = self.use_tree_struct_cb.isChecked()
+        self.search_subdirs = self.search_subdirs_cb.isChecked()
+
+        # Build search path
+        self.sdir = top_dir
+
+        # Add levelx if checked
+        if self.use_levelx:
+            self.sdir += f"level{self.level}{os.sep}"
+
+        # Build filter pattern
+        self.filter = f"muse_L{self.level}_*.fits"
+
+        # Show path with tree structure placeholder
+        display_path = self.sdir
+        if self.use_tree_struct:
+            display_path += f"yyyy{os.sep}mm{os.sep}dd{os.sep}"
+
+        display_path += self.filter
+
+        # Add recursive indicator
+        if self.search_subdirs:
+            display_path += " -r"
+
+        self.searchdir_edit.setText(display_path)
+
+    def on_level_changed(self, index):
+        """Handle level selection change"""
+        self.level = index
+        self.update_search_dir()
+
+    def change_directory(self):
+        """Open directory selection dialog"""
+        directory = QFileDialog.getExistingDirectory(
+            self, "Select Search Directory", self.dir_manual
+        )
+
+        if directory:
+            self.dir_manual = directory
+            self.dir_manual_edit.setText(directory)
+            self.top_dir_path_rb.setChecked(True)
+            self.update_search_dir()
 
     def set_last_5_days(self):
         """Set time range to last 5 days"""
@@ -504,24 +596,6 @@ class MUSEPyFiles(QMainWindow):
             self.tstart_edit.setText(self.tstartval)
             self.tstop_edit.setText(self.tstopval)
 
-    def edit_patterns(self):
-        """Open pattern editor dialog (simplified version)"""
-        QMessageBox.information(
-            self,
-            "Edit Patterns",
-            "Pattern editing dialog not yet implemented.\n"
-            "You can manually edit the search directory field.",
-        )
-
-    def change_directory(self):
-        """Open directory selection dialog"""
-        directory = QFileDialog.getExistingDirectory(self, "Select Search Directory", self.sdir)
-
-        if directory:
-            self.sdir = directory
-            self.searchdir_edit.setText(directory)
-            self.search_pattern_combo.setCurrentIndex(0)  # Set to 'free search'
-
     def start_search(self):
         """Start searching for files"""
         # Get current time values
@@ -537,17 +611,12 @@ class MUSEPyFiles(QMainWindow):
             )
             return
 
-        # Get current settings
-        self.sdir = self.searchdir_edit.text().strip()
-        self.filter = self.filter_edit.text().strip() or "*"
+        # Get current settings from UI
+        self.update_search_dir()
         self.ignoretime = self.ignore_time_cb.isChecked()
 
-        pattern_idx = self.search_pattern_combo.currentIndex()
-
-        # Update recent windows
-        if pattern_idx < len(self.spatterns.usetree) and (
-            self.spatterns.usetree[pattern_idx] or not self.ignoretime
-        ):
+        # Update recent windows (only if not ignoring time or using tree structure)
+        if self.use_tree_struct or not self.ignoretime:
             self.recentwindows.newsearch(self.tstartval, self.tstopval)
             self.recent_combo.clear()
             self.recent_combo.addItems(self.recentwindows.get_windows())
@@ -563,7 +632,7 @@ class MUSEPyFiles(QMainWindow):
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
 
         try:
-            # Get search path
+            # Get search path - use the base directory without tree structure
             search_path = Path(self.sdir)
             if not search_path.exists():
                 QMessageBox.warning(self, "Invalid Path", f"Directory does not exist: {self.sdir}")
@@ -571,26 +640,43 @@ class MUSEPyFiles(QMainWindow):
 
             # Parse times
             try:
-                start_time = Time(self.tstartval, format="isot", scale="utc")
-                stop_time = Time(self.tstopval, format="isot", scale="utc")
-            except:
+                start_time = Time(self.tstartval, scale="utc")
+                stop_time = Time(self.tstopval, scale="utc")
+            except (ValueError, OSError):
                 start_time = Time(datetime.strptime(self.tstartval, "%Y-%m-%d %H:%M:%S"))
                 stop_time = Time(datetime.strptime(self.tstopval, "%Y-%m-%d %H:%M:%S"))
 
-            # Search for files
-            pattern_idx = self.search_pattern_combo.currentIndex()
-            search_subdir = (
-                pattern_idx < len(self.spatterns.searchsubdir)
-                and self.spatterns.searchsubdir[pattern_idx]
-            )
+            # Search for files based on tree structure option
+            files = []
 
-            if search_subdir:
+            if self.use_tree_struct and not self.ignoretime:
+                # Search in date-tree structure yyyy/mm/dd/
+                # Generate date range
+                from datetime import timedelta as td
+
+                dt = datetime.strptime(self.tstartval, "%Y-%m-%d %H:%M:%S")
+                end_dt = datetime.strptime(self.tstopval, "%Y-%m-%d %H:%M:%S")
+
+                current_dt = dt
+                while current_dt <= end_dt:
+                    date_path = (
+                        search_path
+                        / current_dt.strftime("%Y")
+                        / current_dt.strftime("%m")
+                        / current_dt.strftime("%d")
+                    )
+                    if date_path.exists():
+                        date_files = list(date_path.glob(self.filter))
+                        files.extend([str(f) for f in date_files if f.is_file()])
+                    current_dt += td(days=1)
+            elif self.search_subdirs:
+                # Recursive search
                 files = list(search_path.rglob(self.filter))
+                files = [str(f) for f in files if f.is_file()]
             else:
+                # Non-recursive search
                 files = list(search_path.glob(self.filter))
-
-            # Convert to strings
-            files = [str(f) for f in files if f.is_file()]
+                files = [str(f) for f in files if f.is_file()]
 
             # Filter by time if not ignoring
             if not self.ignoretime:
@@ -599,10 +685,10 @@ class MUSEPyFiles(QMainWindow):
                     ftime = file2time(Path(f).name)
                     if ftime:
                         try:
-                            ft = Time(ftime, format="isot", scale="utc")
+                            ft = Time(ftime, scale="utc")
                             if start_time <= ft <= stop_time:
                                 filtered_files.append(f)
-                        except:
+                        except (ValueError, OSError):
                             pass
                 files = filtered_files
 
