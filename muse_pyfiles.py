@@ -122,7 +122,10 @@ def file2time(filename: str) -> str | None:
         date_str = match.group(1)
         time_str = match.group(2)
         try:
-            dt = Time(date_str + time_str, scale="utc")
+            # Reformat: YYYYMMDD -> YYYY-MM-DD and HHMMSS -> HH:MM:SS
+            formatted_date = f"{date_str[0:4]}-{date_str[4:6]}-{date_str[6:8]}"
+            formatted_time = f"{time_str[0:2]}:{time_str[2:4]}:{time_str[4:6]}"
+            dt = Time(f"{formatted_date} {formatted_time}", scale="utc")
             return dt.isot
         except ValueError:
             return None
