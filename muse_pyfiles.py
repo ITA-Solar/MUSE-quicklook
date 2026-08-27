@@ -18,11 +18,10 @@ Original IDL version by Viggo Hansteen and Martin Wiesmann
 import pickle
 import re
 import sys
-from datetime import datetime, timedelta
 from pathlib import Path
 
 from astropy.io import fits
-from astropy.time import Time
+from astropy.time import Time, TimeDelta
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QApplication,
@@ -91,21 +90,11 @@ def valid_time(time_string: str) -> bool:
     """
     if not time_string or not time_string.strip():
         return False
-
     try:
-        Time(time_string, scale="utc")
+        Time(time_string)
         return True
     except (ValueError, TypeError):
-        # Try other common formats
-        try:
-            datetime.strptime(time_string, "%d-%b-%y %H:%M:%S")
-            return True
-        except ValueError:
-            try:
-                datetime.strptime(time_string, "%d-%b-%Y %H:%M:%S")
-                return True
-            except ValueError:
-                return False
+        return False
 
 
 def file2time(filename: str) -> str | None:
@@ -133,8 +122,8 @@ def file2time(filename: str) -> str | None:
         date_str = match.group(1)
         time_str = match.group(2)
         try:
-            dt = datetime.strptime(date_str + time_str, "%Y%m%d%H%M%S")
-            return dt.strftime("%Y-%m-%dT%H:%M:%S")
+            dt = Time(date_str + time_str, scale="utc")
+            return dt.isot
         except ValueError:
             return None
     return None
@@ -238,7 +227,7 @@ class MUSEPyFiles(QMainWindow):
 
         # Set defaults
         self.tstartval = "2014-06-17 18:14:05"  # MUSE first light
-        self.tstopval = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
+        self.tstopval = Time.now() + TimeDelta(1, format="jd")
         self.ignoretime = False
 
         # SPICE-style options
@@ -538,7 +527,7 @@ class MUSEPyFiles(QMainWindow):
             self.sdir += f"level{self.level}{os.sep}"
 
         # Build filter pattern
-        self.filter = f"muse_L{self.level}_*.fits"
+        self.filter = f"muse_l{self.level}_*.fits"
 
         # Show path with tree structure placeholder
         display_path = self.sdir
@@ -572,8 +561,8 @@ class MUSEPyFiles(QMainWindow):
 
     def set_last_5_days(self):
         """Set time range to last 5 days"""
-        end_time = datetime.now()
-        start_time = end_time - timedelta(days=5)
+        end_time = Time.now()
+        start_time = end_time - TimeDelta(5, format="jd")
 
         self.tstartval = start_time.strftime("%Y-%m-%d %H:%M:%S")
         self.tstopval = end_time.strftime("%Y-%m-%d %H:%M:%S")
@@ -583,7 +572,7 @@ class MUSEPyFiles(QMainWindow):
 
     def set_up_to_now(self):
         """Set stop time to now"""
-        end_time = datetime.now()
+        end_time = Time.now()
         self.tstopval = end_time.strftime("%Y-%m-%d %H:%M:%S")
         self.tstop_edit.setText(self.tstopval)
 
@@ -639,12 +628,8 @@ class MUSEPyFiles(QMainWindow):
                 return
 
             # Parse times
-            try:
-                start_time = Time(self.tstartval, scale="utc")
-                stop_time = Time(self.tstopval, scale="utc")
-            except (ValueError, OSError):
-                start_time = Time(datetime.strptime(self.tstartval, "%Y-%m-%d %H:%M:%S"))
-                stop_time = Time(datetime.strptime(self.tstopval, "%Y-%m-%d %H:%M:%S"))
+            start_time = Time(self.tstartval, scale="utc")
+            stop_time = Time(self.tstopval, scale="utc")
 
             # Search for files based on tree structure option
             files = []
@@ -652,10 +637,8 @@ class MUSEPyFiles(QMainWindow):
             if self.use_tree_struct and not self.ignoretime:
                 # Search in date-tree structure yyyy/mm/dd/
                 # Generate date range
-                from datetime import timedelta as td
-
-                dt = datetime.strptime(self.tstartval, "%Y-%m-%d %H:%M:%S")
-                end_dt = datetime.strptime(self.tstopval, "%Y-%m-%d %H:%M:%S")
+                dt = Time(self.tstartval, scale="utc")
+                end_dt = Time(self.tstopval, scale="utc")
 
                 current_dt = dt
                 while current_dt <= end_dt:
@@ -668,7 +651,7 @@ class MUSEPyFiles(QMainWindow):
                     if date_path.exists():
                         date_files = list(date_path.glob(self.filter))
                         files.extend([str(f) for f in date_files if f.is_file()])
-                    current_dt += td(days=1)
+                    current_dt += TimeDelta(1, format="jd")
             elif self.search_subdirs:
                 # Recursive search
                 files = list(search_path.rglob(self.filter))
