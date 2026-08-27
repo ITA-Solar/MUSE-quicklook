@@ -216,3 +216,20 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ============================================================================
+# MUSE PyFiles Project Specific
+# ============================================================================
+
+# MUSE PyFiles configuration directory (stores user settings)
+.muse_pyfiles/
+
+# Temporary files
+*.tmp
+
+# macOS
+.DS_Store
+
+# MUSE data files (uncomment if you don't want to track data files)
+# *.fits
+# *.fits.gz
