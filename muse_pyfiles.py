@@ -102,7 +102,7 @@ def valid_time(time_string: str) -> bool:
         return False
 
     try:
-        Time(time_string, format="isot", scale="utc")
+        Time(time_string, scale="utc")
         return True
     except (ValueError, TypeError):
         # Try other common formats
@@ -198,8 +198,7 @@ class MUSEXControl(QDialog):
         layout.addWidget(label)
 
         info_label = QLabel(
-            "\nThis is a placeholder window.\n"
-            "Full data display functionality would go here."
+            "\nThis is a placeholder window.\nFull data display functionality would go here."
         )
         info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(info_label)
@@ -248,9 +247,7 @@ class MUSEPyFiles(QMainWindow):
 
         # Set defaults
         self.tstartval = "2014-06-17 18:14:05"  # MUSE first light
-        self.tstopval = (datetime.now() + timedelta(days=1)).strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
+        self.tstopval = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S")
         self.ignoretime = False
         self.spatterns = SearchPatterns()
 
@@ -272,9 +269,7 @@ class MUSEPyFiles(QMainWindow):
                         sp = config["spatterns"]
                         self.spatterns.names = sp.get("names", self.spatterns.names)
                         self.spatterns.paths = sp.get("paths", self.spatterns.paths)
-                        self.spatterns.usetree = sp.get(
-                            "usetree", self.spatterns.usetree
-                        )
+                        self.spatterns.usetree = sp.get("usetree", self.spatterns.usetree)
                         self.spatterns.searchsubdir = sp.get(
                             "searchsubdir", self.spatterns.searchsubdir
                         )
@@ -346,9 +341,7 @@ class MUSEPyFiles(QMainWindow):
         time_frame.setFrameStyle(QFrame.Shape.Box)
         time_layout = QVBoxLayout(time_frame)
 
-        time_label = QLabel(
-            "Start/Stop for file search. Time Format: YYYY-MM-DD HH:MM:SS"
-        )
+        time_label = QLabel("Start/Stop for file search. Time Format: YYYY-MM-DD HH:MM:SS")
         time_layout.addWidget(time_label)
 
         time_input_layout = QHBoxLayout()
@@ -522,9 +515,7 @@ class MUSEPyFiles(QMainWindow):
 
     def change_directory(self):
         """Open directory selection dialog"""
-        directory = QFileDialog.getExistingDirectory(
-            self, "Select Search Directory", self.sdir
-        )
+        directory = QFileDialog.getExistingDirectory(self, "Select Search Directory", self.sdir)
 
         if directory:
             self.sdir = directory
@@ -575,9 +566,7 @@ class MUSEPyFiles(QMainWindow):
             # Get search path
             search_path = Path(self.sdir)
             if not search_path.exists():
-                QMessageBox.warning(
-                    self, "Invalid Path", f"Directory does not exist: {self.sdir}"
-                )
+                QMessageBox.warning(self, "Invalid Path", f"Directory does not exist: {self.sdir}")
                 return
 
             # Parse times
@@ -585,9 +574,7 @@ class MUSEPyFiles(QMainWindow):
                 start_time = Time(self.tstartval, format="isot", scale="utc")
                 stop_time = Time(self.tstopval, format="isot", scale="utc")
             except:
-                start_time = Time(
-                    datetime.strptime(self.tstartval, "%Y-%m-%d %H:%M:%S")
-                )
+                start_time = Time(datetime.strptime(self.tstartval, "%Y-%m-%d %H:%M:%S"))
                 stop_time = Time(datetime.strptime(self.tstopval, "%Y-%m-%d %H:%M:%S"))
 
             # Search for files
@@ -663,9 +650,7 @@ class MUSEPyFiles(QMainWindow):
 
                     startobs = header.get("STARTOBS", header.get("DATE-OBS", date))
                     obsid = header.get("OBSID", "Unknown")
-                    obs_desc = header.get(
-                        "OBS_DESC", header.get("OBS_DEC", "No description")
-                    )
+                    obs_desc = header.get("OBS_DESC", header.get("OBS_DEC", "No description"))
                     xcen = header.get("XCEN", 0.0)
                     ycen = header.get("YCEN", 0.0)
                     sat_rot = header.get("SAT_ROT", 0.0)
@@ -712,9 +697,7 @@ class MUSEPyFiles(QMainWindow):
 
         # Find files for this OBS
         matching_files = [
-            self.filelistall[i]
-            for i, obs_idx in enumerate(self.file2obsmap)
-            if obs_idx == row
+            self.filelistall[i] for i, obs_idx in enumerate(self.file2obsmap) if obs_idx == row
         ]
 
         self.filelist = matching_files
